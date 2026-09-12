@@ -1,0 +1,115 @@
+rules_version = '2';
+
+// Spendosaurus Firestore Security Rules
+//
+// What these rules deliberately do NOT do is as important as what they do:
+// there is no rule anywhere in this file that reads the `ciphertext` field
+// of an item, cost, or audit-log entry, because there is nothing these
+// rules -- or anything else running on the server -- could do with it. The
+// household key that would decrypt it is never uploaded in a form the
+// server can read (see /crypto/core and SPEC.md). Access control here is
+// entirely about *who can read/write which document*, never about the
+// content of what they're reading or writing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isMember(householdId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/households/$(householdId)/members/$(request.auth.uid));
+    }
+
+    // A code-hash -> household lookup used only by redeemInvite (Cloud
+    // Function, Admin SDK). Never client-readable: a client asking "what
+    // household does this code belong to" is exactly the question this
+    // table exists to answer only after createInvite/redeemInvite's own
+    // rate-limiting and expiry checks have run.
+    match /inviteLookup/{codeHash} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------------- users
+
+    match /users/{uid} {
+      // A user's public key is, by design, the one thing about them that
+      // must be readable by anyone who might invite or be invited by them.
+      allow read: if signedIn();
+      allow write: if isSelf(uid);
+    }
+
+    // ------------------------------------------------------------ households
+
+    match /households/{householdId} {
+      allow read: if isMember(householdId);
+      // Creation happens through a Cloud Function (see backend/functions),
+      // which also creates the creator's own `members/{uid}` doc atomically
+      // -- a bare client-side create here would leave a household with no
+      // members and no way back in.
+      allow create: if false;
+      allow update, delete: if false;
+
+      match /members/{uid} {
+        allow read: if isMember(householdId);
+
+        // A brand-new joiner isn't a member yet, so they can't write their
+        // own entry -- the existing member completing the join (the one who
+        // decrypted the join announcement and sealed the household key for
+        // the new public key) writes it on their behalf. Any current member
+        // may also re-wrap an existing member's key for a device that
+        // member is setting up.
+        //
+        // These rules cannot themselves authenticate that the public key
+        // being wrapped is the real invitee's -- that's what the
+        // invite-link fragment secret is for (see InvitePairing.kt and
+        // SPEC.md). A rule here only ever governs *who may write*, never
+        // whether the sealed content is correct.
+        allow create, update: if isMember(householdId);
+      }
+
+      match /invites/{inviteId} {
+        // Invite bookkeeping only (hashed code, expiry, revocation) -- no
+        // key material is ever stored here. See sealed join announcements
+        // below for the one field that carries anything sensitive, and even
+        // that is opaque ciphertext this project's own server code has no
+        // key for.
+        allow read: if isMember(householdId);
+        allow create, update: if false; // via Cloud Functions only (rate limiting, expiry)
+      }
+
+      match /joinAnnouncements/{announcementId} {
+        // Opaque ciphertext (see InvitePairing.kt) -- a joining device's
+        // sealed public-key announcement. Any signed-in user may create one
+        // (they're pre-membership at this point); only existing members may
+        // read the list to complete a pending join.
+        allow create: if signedIn();
+        allow read: if isMember(householdId);
+        allow delete: if isMember(householdId); // cleanup after the key is wrapped
+      }
+
+      match /items/{itemId} {
+        allow read: if isMember(householdId);
+        allow write: if isMember(householdId);
+
+        match /costs/{costId} {
+          allow read, write: if isMember(householdId);
+        }
+      }
+
+      match /auditLog/{entryId} {
+        allow read: if isMember(householdId);
+        // Audit entries are append-only: never updated, never deleted, by
+        // anyone, including admins -- an audit trail that can be edited by
+        // the people it audits is not a trail.
+        allow create: if isMember(householdId) && request.resource.data.actorUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

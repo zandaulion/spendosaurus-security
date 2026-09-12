@@ -1,0 +1,23 @@
+# Gradle / Kotlin / Android
+.gradle/
+build/
+*/build/
+*/*/build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+
+# Node / Cloud Functions
+node_modules/
+backend/functions/lib/
+npm-debug.log*
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# OS
+.DS_Store

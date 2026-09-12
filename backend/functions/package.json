@@ -1,0 +1,25 @@
+{
+  "name": "spendosaurus-functions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloud Functions for Spendosaurus. Every function here operates on ciphertext, metadata, and access control only -- none has, needs, or could use a decryption key. See ../../SPEC.md.",
+  "type": "commonjs",
+  "engines": { "node": "22" },
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
+    "test": "node --test --require ts-node/register \"test/**/*.test.ts\"",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.10.2"
+  }
+}
