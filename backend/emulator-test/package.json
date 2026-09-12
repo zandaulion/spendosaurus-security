@@ -1,0 +1,9 @@
+{
+  "name": "spendosaurus-emulator-test",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "firebase": "^12.19.0",
+    "firebase-admin": "^13.0.2"
+  }
+}

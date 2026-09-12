@@ -36,21 +36,34 @@ async function requireMember(householdId: string, uid: string): Promise<void> {
 
 /**
  * Creates a household and its creator's own membership entry atomically.
- * `wrappedKey` is the household key the client just generated, already
- * sealed to the caller's own public key (HouseholdKey.sealForMember) --
- * this function stores it, but cannot open it.
+ *
+ * `householdId` is generated *client-side* (Firestore client SDKs can mint a
+ * valid random document id locally, with no server round trip) rather than
+ * here, because `wrappedKey` must already be sealed with the household id as
+ * HPKE context (HouseholdKey.sealForMember) before this function is ever
+ * called -- the client can't seal a key to an id it doesn't have yet, so the
+ * id has to come from whoever seals first.
  */
 export const createHousehold = onCall(async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in required");
+
+  const householdId = request.data?.householdId;
+  if (typeof householdId !== "string" || !/^[A-Za-z0-9_-]{10,64}$/.test(householdId)) {
+    throw new HttpsError("invalid-argument", "householdId is required");
+  }
 
   const wrappedKey = request.data?.wrappedKey;
   if (typeof wrappedKey !== "string" || wrappedKey.length === 0) {
     throw new HttpsError("invalid-argument", "wrappedKey is required");
   }
 
-  const householdRef = db.collection("households").doc();
+  const householdRef = db.collection("households").doc(householdId);
   await db.runTransaction(async (tx) => {
+    const existing = await tx.get(householdRef);
+    if (existing.exists) {
+      throw new HttpsError("already-exists", "householdId collision -- generate a new client-side id and retry");
+    }
     tx.set(householdRef, {
       createdAt: FieldValue.serverTimestamp(),
       createdBy: uid,
