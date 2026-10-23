@@ -23,13 +23,30 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions';
 
+const projectId = process.env.GCLOUD_PROJECT || 'demo-spendosaurus';
+if (!projectId.startsWith('demo-')) {
+  throw new Error('Integration tests require a synthetic demo- Firebase project.');
+}
+
+function emulatorAddress(value, fallback) {
+  const address = new URL(`http://${value || fallback}`);
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(address.hostname)) {
+    throw new Error('Integration tests require loopback emulator addresses.');
+  }
+  return { host: address.hostname, port: Number(address.port), url: address.origin };
+}
+
+const authEmulator = emulatorAddress(process.env.FIREBASE_AUTH_EMULATOR_HOST, '127.0.0.1:9099');
+const firestoreEmulator = emulatorAddress(process.env.FIRESTORE_EMULATOR_HOST, '127.0.0.1:8080');
+const functionsEmulator = emulatorAddress(process.env.SPENDOS_FUNCTIONS_EMULATOR_HOST, '127.0.0.1:5001');
+
 const CONFIG = {
   apiKey: 'demo-key',
-  authDomain: 'spendosaurus-app.firebaseapp.com',
-  projectId: 'spendosaurus-app',
-  storageBucket: 'spendosaurus-app.firebasestorage.app',
-  messagingSenderId: '255031619343',
-  appId: '1:255031619343:web:749a038497cbd04b17987a'
+  authDomain: `${projectId}.firebaseapp.com`,
+  projectId,
+  storageBucket: `${projectId}.firebasestorage.app`,
+  messagingSenderId: '000000000000',
+  appId: '1:000000000000:web:syntheticfixture'
 };
 
 const FAKE_CRYPTO = {
@@ -72,9 +89,9 @@ function newClient() {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const functions = getFunctions(app);
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
-  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+  connectAuthEmulator(auth, authEmulator.url, { disableWarnings: true });
+  connectFirestoreEmulator(db, firestoreEmulator.host, firestoreEmulator.port);
+  connectFunctionsEmulator(functions, functionsEmulator.host, functionsEmulator.port);
   return { auth, db, functions };
 }
 

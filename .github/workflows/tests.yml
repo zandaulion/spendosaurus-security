@@ -40,3 +40,27 @@ jobs:
       - name: Type-check and build
         run: npm run build
         working-directory: backend/functions
+  emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/**/package-lock.json
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm --prefix backend/functions ci
+      - run: npm --prefix backend/functions run build
+      - run: npm --prefix backend/emulator-test ci
+      - name: Install the emulator runner
+        run: npm install --global firebase-tools@15.33.0
+      - name: Exercise access rules and callable functions with synthetic records
+        working-directory: backend
+        run: firebase emulators:exec --project demo-spendosaurus --only auth,firestore,functions 'node emulator-test/run.mjs'

@@ -74,4 +74,8 @@ Use this repository’s Issues for reproducible bugs and focused feature request
 
 Run `./gradlew :crypto:core:test` for cryptography changes and `npm ci && npm run build` from `backend/functions` for backend changes. Do not test against real households or production Firebase projects.
 
+CI also runs the [synthetic emulator integration](backend/emulator-test/README.md)
+to exercise access rules, invitations, membership and callable functions when
+backend/client dependencies change.
+
 Keep changes focused and update the affected documentation. Security-sensitive reports should follow [SECURITY.md](SECURITY.md).
