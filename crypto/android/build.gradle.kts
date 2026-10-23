@@ -31,7 +31,7 @@ dependencies {
     api(project(":crypto:core")) {
         exclude(group = "com.google.crypto.tink", module = "tink")
     }
-    implementation("com.google.crypto.tink:tink-android:1.23.0")
+    implementation("com.google.crypto.tink:tink-android:1.24.0")
 
     testImplementation(kotlin("test"))
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
