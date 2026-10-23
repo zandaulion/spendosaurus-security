@@ -20,7 +20,7 @@
     "firebase-functions": "^7.4.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "ts-node": "^10.9.2",
     "@types/node": "^22.10.2"
   }
