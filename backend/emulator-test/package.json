@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "firebase": "^13.1.0"
+    "firebase": "^13.2.0"
   },
   "overrides": {
     "@firebase/firestore": {
